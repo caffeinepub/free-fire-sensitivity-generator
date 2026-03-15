@@ -9,6 +9,7 @@ import {
   Crosshair,
   Eye,
   Flame,
+  Hand,
   Loader2,
   Smartphone,
   Target,
@@ -22,6 +23,9 @@ import { useGetSensitivity } from "./hooks/useQueries";
 
 const queryClient = new QueryClient();
 
+const DPI_OPTIONS = [120, 240, 360, 480, 600];
+const DEFAULT_DPI = 240;
+
 const EMBER_PARTICLES = [
   { id: "e1", size: 6, left: 10, top: 20, hue: 50, delay: 0 },
   { id: "e2", size: 9, left: 25, top: 40, hue: 55, delay: 0.5 },
@@ -31,9 +35,39 @@ const EMBER_PARTICLES = [
   { id: "e6", size: 21, left: 85, top: 40, hue: 75, delay: 2.5 },
 ];
 
+function scaleValue(raw: bigint, dpi: number): number {
+  const scaled = Math.round(Number(raw) * (DEFAULT_DPI / dpi));
+  return Math.min(200, Math.max(1, scaled));
+}
+
+function getFireButtonRecommendation(deviceTier: string): {
+  size: string;
+  reason: string;
+} {
+  const tier = deviceTier.toLowerCase();
+  if (tier.includes("low")) {
+    return {
+      size: "Large",
+      reason: "Bigger buttons reduce mis-taps on smaller or slower screens.",
+    };
+  }
+  if (tier.includes("high")) {
+    return {
+      size: "Small",
+      reason:
+        "Smaller buttons free up screen space for better visibility and precision.",
+    };
+  }
+  return {
+    size: "Medium",
+    reason: "A balanced size for smooth performance on mid-range devices.",
+  };
+}
+
 function SensitivityApp() {
   const [deviceName, setDeviceName] = useState("");
   const [result, setResult] = useState<SensitivityProfile | null>(null);
+  const [selectedDpi, setSelectedDpi] = useState(DEFAULT_DPI);
   const { mutate, isPending, isError, error } = useGetSensitivity();
 
   function handleGenerate() {
@@ -64,41 +98,45 @@ function SensitivityApp() {
       ? "tier-high"
       : "tier-mid";
 
+  const fireButton = result
+    ? getFireButtonRecommendation(result.deviceTier)
+    : null;
+
   const sensitivityCards = result
     ? [
         {
           label: "General",
-          value: result.general,
+          value: scaleValue(result.general, selectedDpi),
           icon: <Zap className="w-5 h-5" />,
           delay: 0,
         },
         {
           label: "Red Dot",
-          value: result.redDot,
+          value: scaleValue(result.redDot, selectedDpi),
           icon: <Target className="w-5 h-5" />,
           delay: 0.05,
         },
         {
           label: "2x Scope",
-          value: result.scope2x,
+          value: scaleValue(result.scope2x, selectedDpi),
           icon: <Crosshair className="w-5 h-5" />,
           delay: 0.1,
         },
         {
           label: "4x Scope",
-          value: result.scope4x,
+          value: scaleValue(result.scope4x, selectedDpi),
           icon: <Crosshair className="w-5 h-5" />,
           delay: 0.15,
         },
         {
           label: "Sniper Scope",
-          value: result.sniperScope,
+          value: scaleValue(result.sniperScope, selectedDpi),
           icon: <Eye className="w-5 h-5" />,
           delay: 0.2,
         },
         {
           label: "Free Look",
-          value: result.freeLook,
+          value: scaleValue(result.freeLook, selectedDpi),
           icon: <Zap className="w-5 h-5" />,
           delay: 0.25,
         },
@@ -184,37 +222,67 @@ function SensitivityApp() {
             transition={{ duration: 0.5, delay: 0.4 }}
             className="max-w-2xl mx-auto"
           >
-            <div className="flex flex-col sm:flex-row gap-3 p-2 rounded-xl bg-card/70 backdrop-blur-md border border-border shadow-fire">
-              <div className="relative flex-1">
-                <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input
-                  data-ocid="device.input"
-                  className="pl-10 bg-transparent border-0 text-foreground placeholder:text-muted-foreground text-base h-12 focus-visible:ring-0 focus-visible:ring-offset-0"
-                  placeholder="e.g. Samsung Galaxy A32, iPhone 13, Redmi Note 10..."
-                  value={deviceName}
-                  onChange={(e) => setDeviceName(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  disabled={isPending}
-                />
+            <div className="flex flex-col gap-3 p-4 rounded-xl bg-card/70 backdrop-blur-md border border-border shadow-fire">
+              {/* Device input + generate button */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    data-ocid="device.input"
+                    className="pl-10 bg-transparent border-0 text-foreground placeholder:text-muted-foreground text-base h-12 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    placeholder="e.g. Samsung Galaxy A32, iPhone 13, Redmi Note 10..."
+                    value={deviceName}
+                    onChange={(e) => setDeviceName(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    disabled={isPending}
+                  />
+                </div>
+                <Button
+                  data-ocid="device.primary_button"
+                  onClick={handleGenerate}
+                  disabled={isPending || !deviceName.trim()}
+                  className="h-12 px-8 bg-primary text-primary-foreground font-display font-bold text-base hover:opacity-90 transition-all pulse-glow-card rounded-lg gap-2"
+                >
+                  {isPending ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      Generate
+                      <ChevronRight className="w-5 h-5" />
+                    </>
+                  )}
+                </Button>
               </div>
-              <Button
-                data-ocid="device.primary_button"
-                onClick={handleGenerate}
-                disabled={isPending || !deviceName.trim()}
-                className="h-12 px-8 bg-primary text-primary-foreground font-display font-bold text-base hover:opacity-90 transition-all pulse-glow-card rounded-lg gap-2"
+
+              {/* DPI Selector */}
+              <div
+                data-ocid="dpi.select"
+                className="flex flex-wrap items-center gap-2 pt-1"
               >
-                {isPending ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    Generate
-                    <ChevronRight className="w-5 h-5" />
-                  </>
-                )}
-              </Button>
+                <span className="text-muted-foreground text-xs font-display font-bold uppercase tracking-widest w-8 shrink-0">
+                  DPI
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {DPI_OPTIONS.map((dpi, idx) => (
+                    <button
+                      key={dpi}
+                      type="button"
+                      data-ocid={`dpi.toggle.${idx + 1}`}
+                      onClick={() => setSelectedDpi(dpi)}
+                      className={`px-3 py-1 rounded-md text-xs font-display font-bold transition-all border ${
+                        selectedDpi === dpi
+                          ? "bg-primary text-primary-foreground border-primary shadow-[0_0_10px_oklch(0.76_0.18_60/0.4)]"
+                          : "bg-transparent text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
+                      }`}
+                    >
+                      {dpi}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </motion.div>
         </div>
@@ -297,11 +365,19 @@ function SensitivityApp() {
                     {deviceName}
                   </h2>
                 </div>
-                <Badge
-                  className={`px-4 py-2 text-sm font-display font-bold uppercase tracking-widest border ${tierClass} rounded-full`}
-                >
-                  {result.deviceTier}
-                </Badge>
+                <div className="flex items-center gap-3">
+                  <span className="text-muted-foreground text-xs font-display uppercase tracking-widest">
+                    DPI:{" "}
+                    <span className="text-primary font-bold">
+                      {selectedDpi}
+                    </span>
+                  </span>
+                  <Badge
+                    className={`px-4 py-2 text-sm font-display font-bold uppercase tracking-widest border ${tierClass} rounded-full`}
+                  >
+                    {result.deviceTier}
+                  </Badge>
+                </div>
               </motion.div>
 
               {/* Sensitivity grid */}
@@ -345,7 +421,7 @@ function SensitivityApp() {
                         textShadow: "0 0 20px oklch(0.76 0.18 60 / 0.35)",
                       }}
                     >
-                      {Number(card.value)}
+                      {card.value}
                     </div>
 
                     <div className="h-1 rounded-full bg-border overflow-hidden">
@@ -353,7 +429,7 @@ function SensitivityApp() {
                         className="h-full rounded-full bg-primary"
                         initial={{ width: 0 }}
                         animate={{
-                          width: `${Math.min((Number(card.value) / 200) * 100, 100)}%`,
+                          width: `${Math.min((card.value / 200) * 100, 100)}%`,
                         }}
                         transition={{
                           duration: 0.8,
@@ -366,12 +442,111 @@ function SensitivityApp() {
                 ))}
               </div>
 
+              {/* Fire Button Size Card */}
+              {fireButton && (
+                <motion.div
+                  data-ocid="fire_button.card"
+                  initial={{ opacity: 0, y: 24 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.35 }}
+                  className="mt-6 relative overflow-hidden rounded-xl border border-border p-5 flex flex-col sm:flex-row items-start sm:items-center gap-5"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, oklch(0.16 0.008 260), oklch(0.13 0.005 260))",
+                  }}
+                >
+                  {/* Decorative glow */}
+                  <div
+                    className="absolute top-0 right-0 w-32 h-32 opacity-10"
+                    style={{
+                      background:
+                        "radial-gradient(circle at top right, oklch(0.76 0.18 60), transparent 70%)",
+                    }}
+                  />
+
+                  <div
+                    className="shrink-0 w-14 h-14 rounded-xl flex items-center justify-center"
+                    style={{
+                      background:
+                        "linear-gradient(135deg, oklch(0.76 0.18 60 / 0.2), oklch(0.68 0.22 45 / 0.1))",
+                      border: "1px solid oklch(0.76 0.18 60 / 0.3)",
+                    }}
+                  >
+                    <Hand className="w-7 h-7 text-primary" />
+                  </div>
+
+                  <div className="flex-1">
+                    <p className="text-muted-foreground text-xs font-display font-bold uppercase tracking-widest mb-1">
+                      Recommended Fire Button Size
+                    </p>
+                    <p
+                      className="font-display font-extrabold text-3xl text-foreground mb-1"
+                      style={{
+                        textShadow: "0 0 20px oklch(0.76 0.18 60 / 0.35)",
+                      }}
+                    >
+                      {fireButton.size}
+                    </p>
+                    <p className="text-muted-foreground text-sm leading-relaxed">
+                      {fireButton.reason}
+                    </p>
+                  </div>
+
+                  {/* Size indicator pills */}
+                  <div className="flex gap-1.5 items-end shrink-0">
+                    {(["Small", "Medium", "Large"] as const).map((size) => (
+                      <div
+                        key={size}
+                        className="flex flex-col items-center gap-1"
+                      >
+                        <div
+                          className="rounded transition-all"
+                          style={{
+                            width:
+                              size === "Small"
+                                ? "16px"
+                                : size === "Medium"
+                                  ? "22px"
+                                  : "28px",
+                            height:
+                              size === "Small"
+                                ? "16px"
+                                : size === "Medium"
+                                  ? "22px"
+                                  : "28px",
+                            background:
+                              fireButton.size === size
+                                ? "oklch(0.76 0.18 60)"
+                                : "oklch(0.24 0.01 260)",
+                            boxShadow:
+                              fireButton.size === size
+                                ? "0 0 10px oklch(0.76 0.18 60 / 0.5)"
+                                : "none",
+                          }}
+                        />
+                        <span
+                          className="text-[9px] font-display font-bold uppercase"
+                          style={{
+                            color:
+                              fireButton.size === size
+                                ? "oklch(0.76 0.18 60)"
+                                : "oklch(0.4 0.01 260)",
+                          }}
+                        >
+                          {size[0]}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
               {/* Tips section */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.4 }}
-                className="mt-8 p-5 rounded-xl border border-primary/20 bg-primary/5"
+                transition={{ duration: 0.5, delay: 0.45 }}
+                className="mt-6 p-5 rounded-xl border border-primary/20 bg-primary/5"
               >
                 <div className="flex items-start gap-3">
                   <Zap className="w-5 h-5 text-primary shrink-0 mt-0.5" />
@@ -383,6 +558,8 @@ function SensitivityApp() {
                       These settings are optimized for your device tier.
                       Fine-tune by ±5 based on your personal playstyle. Higher
                       values give faster aim — lower values give more precision.
+                      Adjust DPI if the sensitivity feels off, and match your
+                      fire button size recommendation for best results.
                     </p>
                   </div>
                 </div>
