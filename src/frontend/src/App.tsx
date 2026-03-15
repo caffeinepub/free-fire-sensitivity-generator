@@ -82,6 +82,13 @@ const RAM_SENSI_BOOST: Record<RamTier, number> = {
   "8+": 0,
 };
 
+// RAM fire button size ranges: lower RAM = smaller fire button
+const RAM_FIRE_SIZE: Record<RamTier, [number, number]> = {
+  "1-3": [30, 49],
+  "4-6": [45, 59],
+  "8+": [40, 54],
+};
+
 function generateSettings(deviceName: string, ram: RamTier): Settings {
   const tier = detectTier(deviceName);
   const t = (hashString(deviceName) % 100) / 100;
@@ -89,7 +96,6 @@ function generateSettings(deviceName: string, ram: RamTier): Settings {
   const tiers = {
     low: {
       dpi: [200, 350],
-      fireSize: [60, 75],
       general: [75, 90],
       redDot: [70, 85],
       scope2x: [65, 80],
@@ -100,7 +106,6 @@ function generateSettings(deviceName: string, ram: RamTier): Settings {
     },
     mid: {
       dpi: [400, 550],
-      fireSize: [76, 85],
       general: [100, 115],
       redDot: [95, 110],
       scope2x: [90, 105],
@@ -111,7 +116,6 @@ function generateSettings(deviceName: string, ram: RamTier): Settings {
     },
     high: {
       dpi: [600, 800],
-      fireSize: [86, 95],
       general: [130, 150],
       redDot: [125, 142],
       scope2x: [118, 135],
@@ -122,7 +126,6 @@ function generateSettings(deviceName: string, ram: RamTier): Settings {
     },
     pro: {
       dpi: [850, 1000],
-      fireSize: [96, 100],
       general: [175, 200],
       redDot: [165, 188],
       scope2x: [155, 175],
@@ -133,7 +136,6 @@ function generateSettings(deviceName: string, ram: RamTier): Settings {
     },
     default: {
       dpi: [380, 420],
-      fireSize: [75, 81],
       general: [90, 105],
       redDot: [85, 100],
       scope2x: [80, 95],
@@ -158,9 +160,12 @@ function generateSettings(deviceName: string, ram: RamTier): Settings {
     return Math.min(200, val);
   }
 
+  const fireSizeRange = RAM_FIRE_SIZE[ram];
+  const fireSize = lerp(fireSizeRange[0], fireSizeRange[1], t);
+
   return {
     dpi: adjustedDpi,
-    fireSize: lerp(cfg.fireSize[0], cfg.fireSize[1], t),
+    fireSize,
     general: boosted(cfg.general[0], cfg.general[1]),
     redDot: boosted(cfg.redDot[0], cfg.redDot[1]),
     scope2x: boosted(cfg.scope2x[0], cfg.scope2x[1]),
