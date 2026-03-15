@@ -1,593 +1,615 @@
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Toaster } from "@/components/ui/sonner";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
-  AlertTriangle,
-  ChevronRight,
   Crosshair,
-  Eye,
   Flame,
-  Hand,
-  Loader2,
+  Gauge,
+  MemoryStick,
   Smartphone,
-  Target,
   Zap,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
-import { toast } from "sonner";
-import type { SensitivityProfile } from "./backend.d";
-import { useGetSensitivity } from "./hooks/useQueries";
 
-const queryClient = new QueryClient();
+// ─── Types ───────────────────────────────────────────────────────────────────
 
-const DPI_OPTIONS = [120, 240, 360, 480, 600];
-const DEFAULT_DPI = 240;
+type RamTier = "1-3" | "4-6" | "8+";
 
-const EMBER_PARTICLES = [
-  { id: "e1", size: 6, left: 10, top: 20, hue: 50, delay: 0 },
-  { id: "e2", size: 9, left: 25, top: 40, hue: 55, delay: 0.5 },
-  { id: "e3", size: 12, left: 40, top: 20, hue: 60, delay: 1.0 },
-  { id: "e4", size: 15, left: 55, top: 40, hue: 65, delay: 1.5 },
-  { id: "e5", size: 18, left: 70, top: 20, hue: 70, delay: 2.0 },
-  { id: "e6", size: 21, left: 85, top: 40, hue: 75, delay: 2.5 },
+interface Settings {
+  dpi: number;
+  fireSize: number;
+  general: number;
+  redDot: number;
+  scope2x: number;
+  scope4x: number;
+  sniper: number;
+  gyroscope: number;
+  tier: string;
+}
+
+// ─── Device Detection ────────────────────────────────────────────────────────
+
+function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function lerp(min: number, max: number, t: number): number {
+  return Math.round(min + (max - min) * t);
+}
+
+function detectTier(name: string): "low" | "mid" | "high" | "pro" | "default" {
+  const n = name.toLowerCase();
+  if (
+    /samsung s2[2-9]|iphone 1[4-9]|asus rog|black shark|rog phone|redmagic|nubia red magic/.test(
+      n,
+    )
+  )
+    return "pro";
+  if (/samsung s[0-9]|iphone|oneplus|mi 11|poco x|oppo find|find x/.test(n))
+    return "high";
+  if (
+    /redmi note|samsung a3[0-9]|samsung a4[0-9]|samsung a5[0-9]|realme [5-9]|poco m|vivo v|oppo a[5-9]/.test(
+      n,
+    )
+  )
+    return "mid";
+  if (
+    /redmi [0-9]|samsung a1[0-9]|samsung a2[0-9]|nokia|motorola moto g|vivo y|realme [1-4]|tecno|infinix/.test(
+      n,
+    )
+  )
+    return "low";
+  return "default";
+}
+
+// RAM multiplier: 8+ GB = smaller DPI, lower tiers = normal/higher DPI
+const RAM_DPI_MULTIPLIER: Record<RamTier, number> = {
+  "1-3": 1.0,
+  "4-6": 1.05,
+  "8+": 0.68,
+};
+
+// RAM sensitivity boost: lower RAM = higher sensitivity (above 130)
+const RAM_SENSI_BOOST: Record<RamTier, number> = {
+  "1-3": 60, // +60 boost so even low-tier devices exceed 130
+  "4-6": 30,
+  "8+": 0,
+};
+
+function generateSettings(deviceName: string, ram: RamTier): Settings {
+  const tier = detectTier(deviceName);
+  const t = (hashString(deviceName) % 100) / 100;
+
+  const tiers = {
+    low: {
+      dpi: [200, 350],
+      fireSize: [60, 75],
+      general: [75, 90],
+      redDot: [70, 85],
+      scope2x: [65, 80],
+      scope4x: [60, 75],
+      sniper: [55, 70],
+      gyro: [60, 75],
+      label: "Low-End Device",
+    },
+    mid: {
+      dpi: [400, 550],
+      fireSize: [76, 85],
+      general: [100, 115],
+      redDot: [95, 110],
+      scope2x: [90, 105],
+      scope4x: [85, 100],
+      sniper: [75, 90],
+      gyro: [80, 95],
+      label: "Mid-Range Device",
+    },
+    high: {
+      dpi: [600, 800],
+      fireSize: [86, 95],
+      general: [130, 150],
+      redDot: [125, 142],
+      scope2x: [118, 135],
+      scope4x: [110, 128],
+      sniper: [100, 118],
+      gyro: [112, 130],
+      label: "High-End Device",
+    },
+    pro: {
+      dpi: [850, 1000],
+      fireSize: [96, 100],
+      general: [175, 200],
+      redDot: [165, 188],
+      scope2x: [155, 175],
+      scope4x: [145, 165],
+      sniper: [130, 150],
+      gyro: [145, 165],
+      label: "Pro / Flagship Device",
+    },
+    default: {
+      dpi: [380, 420],
+      fireSize: [75, 81],
+      general: [90, 105],
+      redDot: [85, 100],
+      scope2x: [80, 95],
+      scope4x: [75, 90],
+      sniper: [68, 82],
+      gyro: [75, 90],
+      label: "Standard Device",
+    },
+  };
+
+  const cfg = tiers[tier];
+  const rawDpi = lerp(cfg.dpi[0], cfg.dpi[1], t);
+  const adjustedDpi = Math.max(
+    1,
+    Math.min(1000, Math.round(rawDpi * RAM_DPI_MULTIPLIER[ram])),
+  );
+
+  const boost = RAM_SENSI_BOOST[ram];
+
+  function boosted(min: number, max: number): number {
+    const val = lerp(min, max, t) + boost;
+    return Math.min(200, val);
+  }
+
+  return {
+    dpi: adjustedDpi,
+    fireSize: lerp(cfg.fireSize[0], cfg.fireSize[1], t),
+    general: boosted(cfg.general[0], cfg.general[1]),
+    redDot: boosted(cfg.redDot[0], cfg.redDot[1]),
+    scope2x: boosted(cfg.scope2x[0], cfg.scope2x[1]),
+    scope4x: boosted(cfg.scope4x[0], cfg.scope4x[1]),
+    sniper: boosted(cfg.sniper[0], cfg.sniper[1]),
+    gyroscope: boosted(cfg.gyro[0], cfg.gyro[1]),
+    tier: cfg.label,
+  };
+}
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+interface BigStatCardProps {
+  label: string;
+  value: number;
+  max: number;
+  unit?: string;
+  icon: React.ReactNode;
+  ocid: string;
+  accent?: "orange" | "red";
+}
+
+function BigStatCard({
+  label,
+  value,
+  max,
+  unit,
+  icon,
+  ocid,
+  accent = "orange",
+}: BigStatCardProps) {
+  const pct = (value / max) * 100;
+  const glowClass = accent === "red" ? "glow-red" : "glow-orange";
+  const barAccent =
+    accent === "red" ? "from-accent to-primary" : "from-primary to-yellow-400";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.4 }}
+      data-ocid={ocid}
+      className={`relative overflow-hidden rounded-xl border border-border bg-card p-5 ${glowClass}`}
+    >
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
+      <div className="flex items-start justify-between mb-3">
+        <div className="p-2 rounded-lg bg-muted text-primary">{icon}</div>
+        <span className="text-xs text-muted-foreground uppercase tracking-widest font-display">
+          {label}
+        </span>
+      </div>
+      <div className="mb-1">
+        <span className="text-5xl font-display font-bold text-primary text-glow">
+          {value}
+        </span>
+        {unit && (
+          <span className="text-muted-foreground text-sm ml-1">{unit}</span>
+        )}
+      </div>
+      <div className="text-xs text-muted-foreground mb-3">Range: 1–{max}</div>
+      <div className="h-2 rounded-full bg-muted overflow-hidden">
+        <motion.div
+          className={`h-full rounded-full bg-gradient-to-r ${barAccent}`}
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
+        />
+      </div>
+    </motion.div>
+  );
+}
+
+interface SensitivityCardProps {
+  label: string;
+  value: number;
+  icon: React.ReactNode;
+  ocid: string;
+  delay: number;
+}
+
+function SensitivityCard({
+  label,
+  value,
+  icon,
+  ocid,
+  delay,
+}: SensitivityCardProps) {
+  const pct = (value / 200) * 100;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay }}
+      data-ocid={ocid}
+      className="rounded-xl border border-border bg-card p-4 hover:border-primary/40 transition-colors"
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <div className="text-primary">{icon}</div>
+        <span className="font-display font-semibold text-sm uppercase tracking-wide text-muted-foreground">
+          {label}
+        </span>
+      </div>
+      <div className="flex items-end justify-between mb-2">
+        <span className="text-3xl font-display font-bold text-foreground">
+          {value}
+        </span>
+        <span className="text-xs text-muted-foreground">/ 200</span>
+      </div>
+      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+        <motion.div
+          className="h-full rounded-full progress-bar-fill"
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.7, ease: "easeOut", delay: delay + 0.2 }}
+        />
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── RAM Selector ─────────────────────────────────────────────────────────────
+
+const RAM_OPTIONS: { value: RamTier; label: string; desc: string }[] = [
+  { value: "1-3", label: "1 – 3 GB", desc: "Budget" },
+  { value: "4-6", label: "4 – 6 GB", desc: "Mid-Range" },
+  { value: "8+", label: "8+ GB", desc: "High-End" },
 ];
 
-const FIRE_BUTTON_SIZE = 200;
-
-function scaleValue(raw: bigint, dpi: number): number {
-  const scaled = Math.round(Number(raw) * (DEFAULT_DPI / dpi));
-  return Math.min(200, Math.max(1, scaled));
+function RamSelector({
+  value,
+  onChange,
+}: { value: RamTier; onChange: (v: RamTier) => void }) {
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {RAM_OPTIONS.map((opt) => (
+        <button
+          type="button"
+          key={opt.value}
+          data-ocid={`ram.select.${opt.value === "1-3" ? "1" : opt.value === "4-6" ? "2" : "3"}`}
+          onClick={() => onChange(opt.value)}
+          className={`flex flex-col items-center py-2.5 px-2 rounded-lg border text-center transition-all ${
+            value === opt.value
+              ? "border-primary bg-primary/15 text-primary"
+              : "border-border/60 bg-muted/30 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+          }`}
+        >
+          <span className="font-display font-bold text-sm">{opt.label}</span>
+          <span className="text-xs mt-0.5 opacity-70">{opt.desc}</span>
+        </button>
+      ))}
+    </div>
+  );
 }
 
-function getFireButtonReason(deviceTier: string): string {
-  const tier = deviceTier.toLowerCase();
-  if (tier.includes("low")) {
-    return "Size 200 maximizes tap accuracy on smaller or slower screens.";
-  }
-  if (tier.includes("high")) {
-    return "Size 200 is the in-game standard for fast, responsive fire on high-end devices.";
-  }
-  return "Size 200 is the optimal in-game fire button size for smooth performance.";
-}
+// ─── Main App ────────────────────────────────────────────────────────────────
 
-function getRecommendedDpi(deviceTier: string): number {
-  const tier = deviceTier.toLowerCase();
-  if (tier.includes("low")) return 240;
-  if (tier.includes("high")) return 480;
-  return 360;
-}
-
-function SensitivityApp() {
+export default function App() {
   const [deviceName, setDeviceName] = useState("");
-  const [result, setResult] = useState<SensitivityProfile | null>(null);
-  const [selectedDpi, setSelectedDpi] = useState(DEFAULT_DPI);
-  const { mutate, isPending, isError, error } = useGetSensitivity();
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [input, setInput] = useState("");
+  const [ram, setRam] = useState<RamTier>("4-6");
 
   function handleGenerate() {
-    const trimmed = deviceName.trim();
-    if (!trimmed) {
-      toast.error("Please enter your device name");
-      return;
-    }
-    mutate(trimmed, {
-      onSuccess: (data) => {
-        setResult(data);
-        toast.success("Sensitivity generated!");
-      },
-      onError: (err) => {
-        toast.error(err.message || "Failed to generate sensitivity");
-      },
-    });
+    const trimmed = input.trim();
+    if (!trimmed) return;
+    setDeviceName(trimmed);
+    setSettings(generateSettings(trimmed, ram));
   }
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+  function handleKey(e: React.KeyboardEvent) {
     if (e.key === "Enter") handleGenerate();
   }
 
-  const tierLabel = result?.deviceTier ?? "";
-  const tierClass = tierLabel.toLowerCase().includes("low")
-    ? "tier-low"
-    : tierLabel.toLowerCase().includes("high")
-      ? "tier-high"
-      : "tier-mid";
-
-  const fireButtonReason = result
-    ? getFireButtonReason(result.deviceTier)
-    : null;
-
-  const recommendedDpi = result ? getRecommendedDpi(result.deviceTier) : null;
-
-  const sensitivityCards = result
+  const sensitivityItems = settings
     ? [
         {
           label: "General",
-          value: scaleValue(result.general, selectedDpi),
-          icon: <Zap className="w-5 h-5" />,
-          delay: 0,
+          value: settings.general,
+          icon: <Gauge size={16} />,
+          ocid: "sensitivity.card.1",
         },
         {
           label: "Red Dot",
-          value: scaleValue(result.redDot, selectedDpi),
-          icon: <Target className="w-5 h-5" />,
-          delay: 0.05,
+          value: settings.redDot,
+          icon: <Crosshair size={16} />,
+          ocid: "sensitivity.card.2",
         },
         {
-          label: "2x Scope",
-          value: scaleValue(result.scope2x, selectedDpi),
-          icon: <Crosshair className="w-5 h-5" />,
-          delay: 0.1,
+          label: "2× Scope",
+          value: settings.scope2x,
+          icon: <Crosshair size={16} />,
+          ocid: "sensitivity.card.3",
         },
         {
-          label: "4x Scope",
-          value: scaleValue(result.scope4x, selectedDpi),
-          icon: <Crosshair className="w-5 h-5" />,
-          delay: 0.15,
+          label: "4× Scope",
+          value: settings.scope4x,
+          icon: <Crosshair size={16} />,
+          ocid: "sensitivity.card.4",
         },
         {
-          label: "Sniper Scope",
-          value: scaleValue(result.sniperScope, selectedDpi),
-          icon: <Eye className="w-5 h-5" />,
-          delay: 0.2,
+          label: "AWM / Sniper",
+          value: settings.sniper,
+          icon: <Crosshair size={16} />,
+          ocid: "sensitivity.card.5",
         },
         {
-          label: "Free Look",
-          value: scaleValue(result.freeLook, selectedDpi),
-          icon: <Zap className="w-5 h-5" />,
-          delay: 0.25,
+          label: "Gyroscope",
+          value: settings.gyroscope,
+          icon: <Zap size={16} />,
+          ocid: "sensitivity.card.6",
         },
       ]
     : [];
 
   return (
-    <div className="min-h-screen bg-background ff-grid-bg font-body">
-      {/* Hero */}
-      <header className="relative overflow-hidden">
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{
-            backgroundImage:
-              "url('/assets/generated/ff-hero-bg.dim_1600x600.jpg')",
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-background" />
+    <div className="min-h-screen bg-background bg-grid flex flex-col">
+      {/* Ambient top glow */}
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] rounded-full blur-[120px] bg-primary/10 pointer-events-none" />
 
-        {/* Floating ember particles */}
-        {EMBER_PARTICLES.map((p) => (
-          <div
-            key={p.id}
-            className="absolute rounded-full ember-glow"
-            style={{
-              width: `${p.size}px`,
-              height: `${p.size}px`,
-              background: `oklch(0.76 0.18 ${p.hue})`,
-              left: `${p.left}%`,
-              top: `${p.top}%`,
-              animationDelay: `${p.delay}s`,
-              filter: "blur(1px)",
-              opacity: 0.6,
-            }}
-          />
-        ))}
+      {/* Header */}
+      <header className="relative z-10 border-b border-border/50 px-4 py-4">
+        <div className="max-w-4xl mx-auto flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10 border border-primary/30">
+            <Flame size={22} className="text-primary" />
+          </div>
+          <span className="font-display font-bold text-lg tracking-wide text-foreground">
+            FF<span className="text-primary">Sensitivity</span>
+          </span>
+        </div>
+      </header>
 
-        <div className="relative z-10 container mx-auto px-4 py-20 md:py-28 text-center">
+      {/* Main */}
+      <main className="relative z-10 flex-1 px-4 py-12">
+        <div className="max-w-4xl mx-auto">
+          {/* Hero */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="flex items-center justify-center gap-2 mb-4"
+            className="text-center mb-12"
           >
-            <Flame className="w-6 h-6 text-primary" />
-            <span className="text-primary font-display font-semibold tracking-widest text-sm uppercase">
-              Free Fire Pro Tools
-            </span>
-            <Flame className="w-6 h-6 text-primary" />
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs font-display font-semibold uppercase tracking-widest mb-6">
+              <Flame size={12} />
+              Free Fire Pro Settings
+            </div>
+            <h1 className="font-display text-5xl sm:text-6xl font-bold leading-none mb-4">
+              <span className="text-foreground">FREE FIRE</span>
+              <br />
+              <span className="text-primary text-glow">SENSITIVITY</span>
+              <br />
+              <span className="text-foreground">GENERATOR</span>
+            </h1>
+            <p className="text-muted-foreground max-w-md mx-auto text-sm leading-relaxed">
+              Enter your device name and RAM to get personalized DPI, fire
+              button size, and scope sensitivity settings optimized for your
+              hardware.
+            </p>
           </motion.div>
 
-          <motion.h1
+          {/* Input */}
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.1 }}
-            className="font-display font-extrabold text-4xl md:text-6xl lg:text-7xl leading-tight mb-4"
-            style={{ textShadow: "0 0 40px oklch(0.76 0.18 60 / 0.5)" }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="max-w-xl mx-auto mb-14"
           >
-            <span className="text-foreground">Sensitivity</span>
-            <br />
-            <span
-              className="text-primary"
-              style={{ WebkitTextStroke: "1px oklch(0.68 0.22 45)" }}
-            >
-              Generator
-            </span>
-          </motion.h1>
-
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="text-muted-foreground text-lg md:text-xl max-w-xl mx-auto mb-10"
-          >
-            Enter your device name and get optimized Free Fire sensitivity
-            settings — instantly.
-          </motion.p>
-
-          {/* Search Box */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-            className="max-w-2xl mx-auto"
-          >
-            <div className="flex flex-col gap-3 p-4 rounded-xl bg-card/70 backdrop-blur-md border border-border shadow-fire">
-              {/* Device input + generate button */}
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
-                  <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <Card className="border-border/60 bg-card/80 backdrop-blur">
+              <CardHeader className="pb-3">
+                <CardTitle className="font-display text-base flex items-center gap-2 text-muted-foreground uppercase tracking-widest">
+                  <Smartphone size={16} className="text-primary" />
+                  Your Device
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-3">
                   <Input
                     data-ocid="device.input"
-                    className="pl-10 bg-transparent border-0 text-foreground placeholder:text-muted-foreground text-base h-12 focus-visible:ring-0 focus-visible:ring-offset-0"
-                    placeholder="e.g. Samsung Galaxy A32, iPhone 13, Redmi Note 10..."
-                    value={deviceName}
-                    onChange={(e) => setDeviceName(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    disabled={isPending}
+                    placeholder="e.g. Samsung S23, iPhone 14, Redmi Note 12"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKey}
+                    className="bg-input/50 border-border/60 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/50 font-body"
+                  />
+                  <Button
+                    data-ocid="device.submit_button"
+                    onClick={handleGenerate}
+                    disabled={!input.trim()}
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 font-display font-semibold uppercase tracking-wide shrink-0 glow-orange transition-all"
+                  >
+                    Generate
+                  </Button>
+                </div>
+
+                {/* RAM selector */}
+                <div>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <MemoryStick size={13} className="text-primary" />
+                    <span className="text-xs font-display font-semibold uppercase tracking-widest text-muted-foreground">
+                      Select RAM
+                    </span>
+                  </div>
+                  <RamSelector value={ram} onChange={setRam} />
+                </div>
+
+                {deviceName && settings && (
+                  <p className="text-xs text-muted-foreground">
+                    Detected:{" "}
+                    <span className="text-primary font-semibold">
+                      {settings.tier}
+                    </span>
+                    {" · "}
+                    RAM:{" "}
+                    <span className="text-primary font-semibold">{ram} GB</span>
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Results */}
+          <AnimatePresence>
+            {settings && (
+              <motion.section
+                key="results"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                data-ocid="results.section"
+              >
+                {/* Section title */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.1 }}
+                  className="flex items-center gap-3 mb-6"
+                >
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent to-border" />
+                  <span className="font-display font-bold text-xs uppercase tracking-widest text-muted-foreground">
+                    Recommended Settings for —{" "}
+                    <span className="text-primary">{deviceName}</span>
+                  </span>
+                  <div className="h-px flex-1 bg-gradient-to-l from-transparent to-border" />
+                </motion.div>
+
+                {/* DPI + Fire Size */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                  <BigStatCard
+                    label="Recommended DPI"
+                    value={settings.dpi}
+                    max={1000}
+                    ocid="dpi.card"
+                    icon={<Gauge size={18} />}
+                    accent="orange"
+                  />
+                  <BigStatCard
+                    label="Fire Button Size"
+                    value={settings.fireSize}
+                    max={100}
+                    ocid="fire.card"
+                    icon={<Flame size={18} />}
+                    accent="red"
                   />
                 </div>
-                <Button
-                  data-ocid="device.primary_button"
-                  onClick={handleGenerate}
-                  disabled={isPending || !deviceName.trim()}
-                  className="h-12 px-8 bg-primary text-primary-foreground font-display font-bold text-base hover:opacity-90 transition-all pulse-glow-card rounded-lg gap-2"
-                >
-                  {isPending ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      Generate
-                      <ChevronRight className="w-5 h-5" />
-                    </>
-                  )}
-                </Button>
-              </div>
 
-              {/* DPI Selector */}
-              <div
-                data-ocid="dpi.select"
-                className="flex flex-wrap items-center gap-2 pt-1"
-              >
-                <span className="text-muted-foreground text-xs font-display font-bold uppercase tracking-widest w-8 shrink-0">
-                  DPI
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {DPI_OPTIONS.map((dpi, idx) => (
-                    <button
-                      key={dpi}
-                      type="button"
-                      data-ocid={`dpi.toggle.${idx + 1}`}
-                      onClick={() => setSelectedDpi(dpi)}
-                      className={`px-3 py-1 rounded-md text-xs font-display font-bold transition-all border ${
-                        selectedDpi === dpi
-                          ? "bg-primary text-primary-foreground border-primary shadow-[0_0_10px_oklch(0.76_0.18_60/0.4)]"
-                          : "bg-transparent text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
-                      }`}
-                    >
-                      {dpi}
-                    </button>
+                {/* Sensitivity cards */}
+                <h2 className="font-display font-bold text-xs uppercase tracking-widest text-muted-foreground mb-4">
+                  Scope Sensitivity Settings{" "}
+                  <span className="text-primary/60">(0–200)</span>
+                </h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {sensitivityItems.map((item, i) => (
+                    <SensitivityCard
+                      key={item.label}
+                      label={item.label}
+                      value={item.value}
+                      icon={item.icon}
+                      ocid={item.ocid}
+                      delay={i * 0.07}
+                    />
                   ))}
                 </div>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-12 max-w-5xl">
-        {/* Loading */}
-        <AnimatePresence>
-          {isPending && (
-            <motion.div
-              data-ocid="sensitivity.loading_state"
-              key="loading"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="flex flex-col items-center gap-4 py-20 text-center"
-            >
-              <div className="relative">
-                <div className="w-16 h-16 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-                <Flame className="absolute inset-0 m-auto w-6 h-6 text-primary" />
-              </div>
-              <p className="text-muted-foreground font-display font-semibold text-lg">
-                Analyzing device profile...
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                {/* Pro tip */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.6 }}
+                  className="mt-8 p-4 rounded-xl border border-primary/20 bg-primary/5 text-sm text-muted-foreground"
+                >
+                  <span className="text-primary font-semibold">Pro Tip:</span>{" "}
+                  Apply these settings in Free Fire under{" "}
+                  <span className="text-foreground">
+                    Settings → Sensitivity
+                  </span>
+                  . Adjust DPI in your device's pointer/touch settings or a
+                  dedicated gaming app. Fine-tune ±5 based on personal
+                  preference.
+                </motion.div>
+              </motion.section>
+            )}
+          </AnimatePresence>
 
-        {/* Error */}
-        <AnimatePresence>
-          {isError && !isPending && (
+          {/* Empty state */}
+          {!settings && (
             <motion.div
-              data-ocid="sensitivity.error_state"
-              key="error"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="flex flex-col items-center gap-3 py-16 text-center"
-            >
-              <AlertTriangle className="w-12 h-12 text-destructive" />
-              <p className="text-destructive font-display font-bold text-xl">
-                Something went wrong
-              </p>
-              <p className="text-muted-foreground text-sm">
-                {error?.message ?? "Could not generate sensitivity."}
-              </p>
-              <Button
-                variant="outline"
-                onClick={handleGenerate}
-                className="mt-2 border-destructive/50 text-destructive hover:bg-destructive/10"
-              >
-                Try Again
-              </Button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Results */}
-        <AnimatePresence>
-          {result && !isPending && (
-            <motion.div
-              key="results"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              transition={{ delay: 0.4 }}
+              className="text-center py-16"
             >
-              {/* Device name + tier badge */}
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8"
-              >
-                <div>
-                  <p className="text-muted-foreground text-sm uppercase tracking-widest font-semibold mb-1">
-                    Sensitivity for
-                  </p>
-                  <h2 className="font-display font-extrabold text-2xl md:text-3xl text-foreground">
-                    {deviceName}
-                  </h2>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-muted-foreground text-xs font-display uppercase tracking-widest">
-                    DPI:{" "}
-                    <span className="text-primary font-bold">
-                      {selectedDpi}
-                    </span>
-                  </span>
-                  <Badge
-                    className={`px-4 py-2 text-sm font-display font-bold uppercase tracking-widest border ${tierClass} rounded-full`}
-                  >
-                    {result.deviceTier}
-                  </Badge>
-                </div>
-              </motion.div>
-
-              {/* Recommended DPI + Fire Button info bar */}
-              {recommendedDpi && (
-                <motion.div
-                  data-ocid="recommended.card"
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: 0.05 }}
-                  className="mb-6 flex flex-col sm:flex-row gap-3"
-                >
-                  {/* Recommended DPI card */}
-                  <div
-                    className="flex-1 flex items-center gap-4 rounded-xl border border-border p-4"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, oklch(0.16 0.008 260), oklch(0.13 0.005 260))",
+              <div className="w-20 h-20 mx-auto mb-4 rounded-full border-2 border-dashed border-border flex items-center justify-center">
+                <Crosshair size={32} className="text-muted-foreground" />
+              </div>
+              <p className="text-muted-foreground text-sm">
+                Enter your device name above to generate settings
+              </p>
+              <div className="flex flex-wrap justify-center gap-2 mt-4">
+                {[
+                  "Samsung S23",
+                  "iPhone 14",
+                  "Redmi Note 12",
+                  "Asus ROG Phone",
+                ].map((d) => (
+                  <button
+                    type="button"
+                    key={d}
+                    onClick={() => {
+                      setInput(d);
                     }}
+                    className="text-xs px-3 py-1 rounded-full border border-border/60 text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
                   >
-                    <div
-                      className="shrink-0 w-11 h-11 rounded-lg flex items-center justify-center"
-                      style={{
-                        background:
-                          "linear-gradient(135deg, oklch(0.76 0.18 60 / 0.2), oklch(0.68 0.22 45 / 0.1))",
-                        border: "1px solid oklch(0.76 0.18 60 / 0.3)",
-                      }}
-                    >
-                      <Zap className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground text-xs font-display font-bold uppercase tracking-widest mb-0.5">
-                        Recommended DIP
-                      </p>
-                      <p
-                        className="font-display font-extrabold text-3xl text-foreground leading-none"
-                        style={{
-                          textShadow: "0 0 16px oklch(0.76 0.18 60 / 0.4)",
-                        }}
-                      >
-                        {recommendedDpi}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Fire Button Size card */}
-                  <div
-                    data-ocid="fire_button.card"
-                    className="flex-1 flex items-center gap-4 rounded-xl border border-border p-4"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, oklch(0.16 0.008 260), oklch(0.13 0.005 260))",
-                    }}
-                  >
-                    <div
-                      className="shrink-0 w-11 h-11 rounded-lg flex items-center justify-center"
-                      style={{
-                        background:
-                          "linear-gradient(135deg, oklch(0.76 0.18 60 / 0.2), oklch(0.68 0.22 45 / 0.1))",
-                        border: "1px solid oklch(0.76 0.18 60 / 0.3)",
-                      }}
-                    >
-                      <Hand className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground text-xs font-display font-bold uppercase tracking-widest mb-0.5">
-                        Fire Button Size
-                      </p>
-                      <p
-                        className="font-display font-extrabold text-3xl text-foreground leading-none"
-                        style={{
-                          textShadow: "0 0 16px oklch(0.76 0.18 60 / 0.4)",
-                        }}
-                      >
-                        {FIRE_BUTTON_SIZE}
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Sensitivity grid */}
-              <div
-                data-ocid="sensitivity.list"
-                className="grid grid-cols-2 md:grid-cols-3 gap-4"
-              >
-                {sensitivityCards.map((card, idx) => (
-                  <motion.div
-                    key={card.label}
-                    data-ocid={`sensitivity.item.${idx + 1}`}
-                    initial={{ opacity: 0, y: 24, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ duration: 0.4, delay: card.delay }}
-                    whileHover={{ scale: 1.03, y: -3 }}
-                    className="relative group overflow-hidden rounded-xl border border-border bg-card p-5 flex flex-col gap-3 cursor-default"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, oklch(0.16 0.008 260), oklch(0.13 0.005 260))",
-                    }}
-                  >
-                    {/* Orange corner accent */}
-                    <div
-                      className="absolute top-0 right-0 w-16 h-16 opacity-10 group-hover:opacity-20 transition-opacity"
-                      style={{
-                        background:
-                          "radial-gradient(circle at top right, oklch(0.76 0.18 60), transparent 70%)",
-                      }}
-                    />
-
-                    <div className="flex items-center gap-2 text-primary">
-                      {card.icon}
-                      <span className="font-body text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                        {card.label}
-                      </span>
-                    </div>
-
-                    <div
-                      className="font-display font-extrabold text-5xl md:text-6xl leading-none text-foreground"
-                      style={{
-                        textShadow: "0 0 20px oklch(0.76 0.18 60 / 0.35)",
-                      }}
-                    >
-                      {card.value}
-                    </div>
-
-                    <div className="h-1 rounded-full bg-border overflow-hidden">
-                      <motion.div
-                        className="h-full rounded-full bg-primary"
-                        initial={{ width: 0 }}
-                        animate={{
-                          width: `${Math.min((card.value / 200) * 100, 100)}%`,
-                        }}
-                        transition={{
-                          duration: 0.8,
-                          delay: card.delay + 0.3,
-                          ease: "easeOut",
-                        }}
-                      />
-                    </div>
-                  </motion.div>
+                    {d}
+                  </button>
                 ))}
               </div>
-
-              {/* Fire Button reason + Pro Tip */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.35 }}
-                className="mt-6 p-5 rounded-xl border border-primary/20 bg-primary/5"
-              >
-                <div className="flex items-start gap-3">
-                  <Zap className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-display font-bold text-foreground mb-1">
-                      Pro Tip
-                    </p>
-                    <p className="text-muted-foreground text-sm leading-relaxed">
-                      {fireButtonReason} Fine-tune sensitivity by ±5 based on
-                      your personal playstyle. Higher values give faster aim —
-                      lower values give more precision. Set your device DIP to{" "}
-                      <span className="text-primary font-bold">
-                        {recommendedDpi}
-                      </span>{" "}
-                      for the best match with these settings.
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
             </motion.div>
           )}
-        </AnimatePresence>
-
-        {/* Empty state */}
-        {!result && !isPending && !isError && (
-          <motion.div
-            data-ocid="sensitivity.empty_state"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8 }}
-            className="py-20 text-center"
-          >
-            <div className="inline-flex flex-col items-center gap-4">
-              <div
-                className="w-20 h-20 rounded-2xl flex items-center justify-center"
-                style={{
-                  background:
-                    "linear-gradient(135deg, oklch(0.76 0.18 60 / 0.15), oklch(0.68 0.22 45 / 0.08))",
-                  border: "1px solid oklch(0.76 0.18 60 / 0.25)",
-                }}
-              >
-                <Crosshair className="w-10 h-10 text-primary" />
-              </div>
-              <p className="font-display font-bold text-xl text-foreground">
-                Ready to optimize
-              </p>
-              <p className="text-muted-foreground text-sm max-w-xs">
-                Type your device name above and hit Generate to get your perfect
-                Free Fire sensitivity settings.
-              </p>
-            </div>
-          </motion.div>
-        )}
+        </div>
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border mt-16 py-8">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-muted-foreground text-sm">
-            © {new Date().getFullYear()}. Built with{" "}
-            <span className="text-primary">❤️</span> using{" "}
+      <footer className="relative z-10 border-t border-border/50 px-4 py-6">
+        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
+          <p>Settings optimized for Free Fire — adjust to your playstyle.</p>
+          <p>
+            © {new Date().getFullYear()}. Built with ❤️ using{" "}
             <a
-              href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(typeof window !== "undefined" ? window.location.hostname : "")}`}
-              className="text-primary hover:underline font-semibold"
+              href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
+              className="text-primary hover:underline"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -596,16 +618,6 @@ function SensitivityApp() {
           </p>
         </div>
       </footer>
-
-      <Toaster />
     </div>
-  );
-}
-
-export default function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <SensitivityApp />
-    </QueryClientProvider>
   );
 }

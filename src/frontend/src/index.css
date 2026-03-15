@@ -1,172 +1,70 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Exo+2:wght@300;400;500;600;700;800&display=swap");
 
-@font-face {
-  font-family: "Bricolage Grotesque";
-  src: url("/assets/fonts/BricolageGrotesque.woff2") format("woff2");
-  font-weight: 200 800;
-  font-display: swap;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@font-face {
-  font-family: "Satoshi";
-  src: url("/assets/fonts/Satoshi.woff2") format("woff2");
-  font-weight: 300 700;
-  font-display: swap;
-}
-
-@custom-variant dark (&:is(.dark *));
-
-:root {
-  --background: 0.12 0.005 260;
-  --foreground: 0.95 0.01 80;
-  --card: 0.16 0.008 260;
-  --card-foreground: 0.95 0.01 80;
-  --popover: 0.14 0.006 260;
-  --popover-foreground: 0.95 0.01 80;
-  --primary: 0.76 0.18 60;
-  --primary-foreground: 0.1 0.005 260;
-  --secondary: 0.2 0.01 260;
-  --secondary-foreground: 0.85 0.01 80;
-  --muted: 0.18 0.006 260;
-  --muted-foreground: 0.55 0.015 260;
-  --accent: 0.68 0.22 45;
-  --accent-foreground: 0.1 0.005 260;
-  --destructive: 0.58 0.22 25;
-  --destructive-foreground: 0.97 0.005 80;
-  --border: 0.24 0.01 260;
-  --input: 0.22 0.01 260;
-  --ring: 0.76 0.18 60;
-  --radius: 0.5rem;
-  --chart-1: 0.76 0.18 60;
-  --chart-2: 0.68 0.22 45;
-  --chart-3: 0.6 0.15 30;
-  --chart-4: 0.5 0.12 200;
-  --chart-5: 0.45 0.1 280;
-  --sidebar: 0.14 0.006 260;
-  --sidebar-foreground: 0.85 0.01 80;
-  --sidebar-primary: 0.76 0.18 60;
-  --sidebar-primary-foreground: 0.1 0.005 260;
-  --sidebar-accent: 0.2 0.01 260;
-  --sidebar-accent-foreground: 0.85 0.01 80;
-  --sidebar-border: 0.24 0.01 260;
-  --sidebar-ring: 0.76 0.18 60;
-}
-
-@theme inline {
-  --color-background: oklch(var(--background));
-  --color-foreground: oklch(var(--foreground));
-  --color-card: oklch(var(--card));
-  --color-card-foreground: oklch(var(--card-foreground));
-  --color-popover: oklch(var(--popover));
-  --color-popover-foreground: oklch(var(--popover-foreground));
-  --color-primary: oklch(var(--primary));
-  --color-primary-foreground: oklch(var(--primary-foreground));
-  --color-secondary: oklch(var(--secondary));
-  --color-secondary-foreground: oklch(var(--secondary-foreground));
-  --color-muted: oklch(var(--muted));
-  --color-muted-foreground: oklch(var(--muted-foreground));
-  --color-accent: oklch(var(--accent));
-  --color-accent-foreground: oklch(var(--accent-foreground));
-  --color-destructive: oklch(var(--destructive));
-  --color-destructive-foreground: oklch(var(--destructive-foreground));
-  --color-border: oklch(var(--border));
-  --color-input: oklch(var(--input));
-  --color-ring: oklch(var(--ring));
-  --radius-lg: var(--radius);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-sm: calc(var(--radius) - 4px);
-
-  --font-display: "Bricolage Grotesque", sans-serif;
-  --font-body: "Satoshi", sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
-}
-
-* {
-  border-color: oklch(var(--border));
-  outline-color: oklch(var(--ring) / 0.5);
-}
-
-body {
-  background-color: oklch(var(--background));
-  color: oklch(var(--foreground));
-  font-family: var(--font-body);
-  -webkit-font-smoothing: antialiased;
-}
-
-@keyframes ember-float {
-  0%,
-  100% {
-    transform: translateY(0) scale(1);
-    opacity: 0.7;
+@layer base {
+  :root {
+    --background: 15 8% 4%;
+    --foreground: 30 15% 92%;
+    --card: 15 10% 7%;
+    --card-foreground: 30 15% 92%;
+    --popover: 15 10% 7%;
+    --popover-foreground: 30 15% 92%;
+    --primary: 35 95% 55%;
+    --primary-foreground: 15 8% 4%;
+    --secondary: 15 12% 12%;
+    --secondary-foreground: 30 15% 92%;
+    --muted: 15 10% 10%;
+    --muted-foreground: 30 8% 55%;
+    --accent: 5 90% 55%;
+    --accent-foreground: 30 15% 92%;
+    --destructive: 5 85% 50%;
+    --destructive-foreground: 30 15% 92%;
+    --border: 15 12% 16%;
+    --input: 15 12% 12%;
+    --ring: 35 95% 55%;
+    --radius: 0.5rem;
   }
-  50% {
-    transform: translateY(-12px) scale(1.1);
-    opacity: 1;
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Exo 2", sans-serif;
   }
 }
 
-@keyframes pulse-glow {
-  0%,
-  100% {
-    box-shadow: 0 0 20px oklch(0.76 0.18 60 / 0.3);
+@layer utilities {
+  .font-display {
+    font-family: "Rajdhani", sans-serif;
   }
-  50% {
-    box-shadow: 0 0 40px oklch(0.76 0.18 60 / 0.7), 0 0 60px
-      oklch(0.68 0.22 45 / 0.3);
+
+  .glow-orange {
+    box-shadow: 0 0 20px oklch(55% 0.95 35 / 0.4), 0 0 40px
+      oklch(55% 0.95 35 / 0.2);
   }
-}
 
-@keyframes scan-line {
-  0% {
-    background-position: 0% 0%;
+  .glow-red {
+    box-shadow: 0 0 20px oklch(55% 0.9 5 / 0.4), 0 0 40px oklch(55% 0.9 5 / 0.2);
   }
-  100% {
-    background-position: 0% 100%;
+
+  .text-glow {
+    text-shadow: 0 0 20px oklch(55% 0.95 35 / 0.8);
   }
-}
 
-.ember-glow {
-  animation: ember-float 3s ease-in-out infinite;
-}
-.pulse-glow-card {
-  animation: pulse-glow 2.5s ease-in-out infinite;
-}
+  .bg-grid {
+    background-image: linear-gradient(
+        oklch(30% 0.02 35 / 0.15) 1px,
+        transparent 1px
+      ), linear-gradient(90deg, oklch(30% 0.02 35 / 0.15) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
 
-.ff-grid-bg {
-  background-image: linear-gradient(
-      oklch(0.76 0.18 60 / 0.04) 1px,
-      transparent 1px
-    ), linear-gradient(90deg, oklch(0.76 0.18 60 / 0.04) 1px, transparent 1px);
-  background-size: 40px 40px;
-}
-
-.tier-low {
-  background: linear-gradient(
-    135deg,
-    oklch(0.55 0.15 200 / 0.25),
-    oklch(0.45 0.12 220 / 0.15)
-  );
-  border-color: oklch(0.55 0.15 200 / 0.5);
-  color: oklch(0.75 0.12 200);
-}
-
-.tier-mid {
-  background: linear-gradient(
-    135deg,
-    oklch(0.76 0.18 60 / 0.25),
-    oklch(0.68 0.22 45 / 0.15)
-  );
-  border-color: oklch(0.76 0.18 60 / 0.5);
-  color: oklch(0.85 0.16 65);
-}
-
-.tier-high {
-  background: linear-gradient(
-    135deg,
-    oklch(0.7 0.18 30 / 0.25),
-    oklch(0.65 0.2 20 / 0.15)
-  );
-  border-color: oklch(0.7 0.18 30 / 0.5);
-  color: oklch(0.8 0.16 35);
+  .progress-bar-fill {
+    background: linear-gradient(90deg, oklch(55% 0.9 5), oklch(55% 0.95 35));
+  }
 }
