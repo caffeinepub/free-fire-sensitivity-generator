@@ -35,33 +35,29 @@ const EMBER_PARTICLES = [
   { id: "e6", size: 21, left: 85, top: 40, hue: 75, delay: 2.5 },
 ];
 
+const FIRE_BUTTON_SIZE = 200;
+
 function scaleValue(raw: bigint, dpi: number): number {
   const scaled = Math.round(Number(raw) * (DEFAULT_DPI / dpi));
   return Math.min(200, Math.max(1, scaled));
 }
 
-function getFireButtonRecommendation(deviceTier: string): {
-  size: string;
-  reason: string;
-} {
+function getFireButtonReason(deviceTier: string): string {
   const tier = deviceTier.toLowerCase();
   if (tier.includes("low")) {
-    return {
-      size: "Large",
-      reason: "Bigger buttons reduce mis-taps on smaller or slower screens.",
-    };
+    return "Size 200 maximizes tap accuracy on smaller or slower screens.";
   }
   if (tier.includes("high")) {
-    return {
-      size: "Small",
-      reason:
-        "Smaller buttons free up screen space for better visibility and precision.",
-    };
+    return "Size 200 is the in-game standard for fast, responsive fire on high-end devices.";
   }
-  return {
-    size: "Medium",
-    reason: "A balanced size for smooth performance on mid-range devices.",
-  };
+  return "Size 200 is the optimal in-game fire button size for smooth performance.";
+}
+
+function getRecommendedDpi(deviceTier: string): number {
+  const tier = deviceTier.toLowerCase();
+  if (tier.includes("low")) return 240;
+  if (tier.includes("high")) return 480;
+  return 360;
 }
 
 function SensitivityApp() {
@@ -98,9 +94,11 @@ function SensitivityApp() {
       ? "tier-high"
       : "tier-mid";
 
-  const fireButton = result
-    ? getFireButtonRecommendation(result.deviceTier)
+  const fireButtonReason = result
+    ? getFireButtonReason(result.deviceTier)
     : null;
+
+  const recommendedDpi = result ? getRecommendedDpi(result.deviceTier) : null;
 
   const sensitivityCards = result
     ? [
@@ -380,6 +378,84 @@ function SensitivityApp() {
                 </div>
               </motion.div>
 
+              {/* Recommended DPI + Fire Button info bar */}
+              {recommendedDpi && (
+                <motion.div
+                  data-ocid="recommended.card"
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.05 }}
+                  className="mb-6 flex flex-col sm:flex-row gap-3"
+                >
+                  {/* Recommended DPI card */}
+                  <div
+                    className="flex-1 flex items-center gap-4 rounded-xl border border-border p-4"
+                    style={{
+                      background:
+                        "linear-gradient(135deg, oklch(0.16 0.008 260), oklch(0.13 0.005 260))",
+                    }}
+                  >
+                    <div
+                      className="shrink-0 w-11 h-11 rounded-lg flex items-center justify-center"
+                      style={{
+                        background:
+                          "linear-gradient(135deg, oklch(0.76 0.18 60 / 0.2), oklch(0.68 0.22 45 / 0.1))",
+                        border: "1px solid oklch(0.76 0.18 60 / 0.3)",
+                      }}
+                    >
+                      <Zap className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs font-display font-bold uppercase tracking-widest mb-0.5">
+                        Recommended DIP
+                      </p>
+                      <p
+                        className="font-display font-extrabold text-3xl text-foreground leading-none"
+                        style={{
+                          textShadow: "0 0 16px oklch(0.76 0.18 60 / 0.4)",
+                        }}
+                      >
+                        {recommendedDpi}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Fire Button Size card */}
+                  <div
+                    data-ocid="fire_button.card"
+                    className="flex-1 flex items-center gap-4 rounded-xl border border-border p-4"
+                    style={{
+                      background:
+                        "linear-gradient(135deg, oklch(0.16 0.008 260), oklch(0.13 0.005 260))",
+                    }}
+                  >
+                    <div
+                      className="shrink-0 w-11 h-11 rounded-lg flex items-center justify-center"
+                      style={{
+                        background:
+                          "linear-gradient(135deg, oklch(0.76 0.18 60 / 0.2), oklch(0.68 0.22 45 / 0.1))",
+                        border: "1px solid oklch(0.76 0.18 60 / 0.3)",
+                      }}
+                    >
+                      <Hand className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs font-display font-bold uppercase tracking-widest mb-0.5">
+                        Fire Button Size
+                      </p>
+                      <p
+                        className="font-display font-extrabold text-3xl text-foreground leading-none"
+                        style={{
+                          textShadow: "0 0 16px oklch(0.76 0.18 60 / 0.4)",
+                        }}
+                      >
+                        {FIRE_BUTTON_SIZE}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
               {/* Sensitivity grid */}
               <div
                 data-ocid="sensitivity.list"
@@ -442,110 +518,11 @@ function SensitivityApp() {
                 ))}
               </div>
 
-              {/* Fire Button Size Card */}
-              {fireButton && (
-                <motion.div
-                  data-ocid="fire_button.card"
-                  initial={{ opacity: 0, y: 24 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.35 }}
-                  className="mt-6 relative overflow-hidden rounded-xl border border-border p-5 flex flex-col sm:flex-row items-start sm:items-center gap-5"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, oklch(0.16 0.008 260), oklch(0.13 0.005 260))",
-                  }}
-                >
-                  {/* Decorative glow */}
-                  <div
-                    className="absolute top-0 right-0 w-32 h-32 opacity-10"
-                    style={{
-                      background:
-                        "radial-gradient(circle at top right, oklch(0.76 0.18 60), transparent 70%)",
-                    }}
-                  />
-
-                  <div
-                    className="shrink-0 w-14 h-14 rounded-xl flex items-center justify-center"
-                    style={{
-                      background:
-                        "linear-gradient(135deg, oklch(0.76 0.18 60 / 0.2), oklch(0.68 0.22 45 / 0.1))",
-                      border: "1px solid oklch(0.76 0.18 60 / 0.3)",
-                    }}
-                  >
-                    <Hand className="w-7 h-7 text-primary" />
-                  </div>
-
-                  <div className="flex-1">
-                    <p className="text-muted-foreground text-xs font-display font-bold uppercase tracking-widest mb-1">
-                      Recommended Fire Button Size
-                    </p>
-                    <p
-                      className="font-display font-extrabold text-3xl text-foreground mb-1"
-                      style={{
-                        textShadow: "0 0 20px oklch(0.76 0.18 60 / 0.35)",
-                      }}
-                    >
-                      {fireButton.size}
-                    </p>
-                    <p className="text-muted-foreground text-sm leading-relaxed">
-                      {fireButton.reason}
-                    </p>
-                  </div>
-
-                  {/* Size indicator pills */}
-                  <div className="flex gap-1.5 items-end shrink-0">
-                    {(["Small", "Medium", "Large"] as const).map((size) => (
-                      <div
-                        key={size}
-                        className="flex flex-col items-center gap-1"
-                      >
-                        <div
-                          className="rounded transition-all"
-                          style={{
-                            width:
-                              size === "Small"
-                                ? "16px"
-                                : size === "Medium"
-                                  ? "22px"
-                                  : "28px",
-                            height:
-                              size === "Small"
-                                ? "16px"
-                                : size === "Medium"
-                                  ? "22px"
-                                  : "28px",
-                            background:
-                              fireButton.size === size
-                                ? "oklch(0.76 0.18 60)"
-                                : "oklch(0.24 0.01 260)",
-                            boxShadow:
-                              fireButton.size === size
-                                ? "0 0 10px oklch(0.76 0.18 60 / 0.5)"
-                                : "none",
-                          }}
-                        />
-                        <span
-                          className="text-[9px] font-display font-bold uppercase"
-                          style={{
-                            color:
-                              fireButton.size === size
-                                ? "oklch(0.76 0.18 60)"
-                                : "oklch(0.4 0.01 260)",
-                          }}
-                        >
-                          {size[0]}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Tips section */}
+              {/* Fire Button reason + Pro Tip */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.45 }}
+                transition={{ duration: 0.5, delay: 0.35 }}
                 className="mt-6 p-5 rounded-xl border border-primary/20 bg-primary/5"
               >
                 <div className="flex items-start gap-3">
@@ -555,11 +532,13 @@ function SensitivityApp() {
                       Pro Tip
                     </p>
                     <p className="text-muted-foreground text-sm leading-relaxed">
-                      These settings are optimized for your device tier.
-                      Fine-tune by ±5 based on your personal playstyle. Higher
-                      values give faster aim — lower values give more precision.
-                      Adjust DPI if the sensitivity feels off, and match your
-                      fire button size recommendation for best results.
+                      {fireButtonReason} Fine-tune sensitivity by ±5 based on
+                      your personal playstyle. Higher values give faster aim —
+                      lower values give more precision. Set your device DIP to{" "}
+                      <span className="text-primary font-bold">
+                        {recommendedDpi}
+                      </span>{" "}
+                      for the best match with these settings.
                     </p>
                   </div>
                 </div>
