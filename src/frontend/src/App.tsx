@@ -958,8 +958,16 @@ function BuyScreen() {
         "Payment info received! Admin will activate within 24 hours.",
       );
     },
-    onError: () => {
-      toast.error("Failed to submit transaction ID. Please try again.");
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg.includes("already have a pending transaction")) {
+        setPaid(true);
+        toast.success(
+          "You already submitted a transaction ID. Please wait for admin approval.",
+        );
+      } else {
+        toast.error(msg || "Failed to submit. Please try again.");
+      }
     },
   });
 
