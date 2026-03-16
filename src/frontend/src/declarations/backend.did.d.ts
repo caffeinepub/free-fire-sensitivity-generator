@@ -10,6 +10,13 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export interface PaidUserInfo {
+  'paidUntil' : bigint,
+  'name' : string,
+  'user' : Principal,
+  'isPaid' : boolean,
+  'deviceName' : string,
+}
 export interface SensitivityProfile {
   'freeLook' : bigint,
   'sniperScope' : bigint,
@@ -19,8 +26,33 @@ export interface SensitivityProfile {
   'deviceTier' : string,
   'redDot' : bigint,
 }
+export interface Transaction {
+  'principal' : Principal,
+  'txId' : string,
+  'timestamp' : bigint,
+}
+export interface UserProfile { 'name' : string, 'deviceName' : string }
+export type UserRole = { 'admin' : null } |
+  { 'user' : null } |
+  { 'guest' : null };
 export interface _SERVICE {
+  '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
+  'approveTransaction' : ActorMethod<[string], undefined>,
+  'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'canGenerateToday' : ActorMethod<[], boolean>,
+  'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
+  'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getPaidUsers' : ActorMethod<[], Array<PaidUserInfo>>,
+  'getPendingTransactions' : ActorMethod<[], Array<Transaction>>,
+  'getRemainingGenerationsToday' : ActorMethod<[], bigint>,
   'getSensitivity' : ActorMethod<[string], SensitivityProfile>,
+  'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
+  'isCallerAdmin' : ActorMethod<[], boolean>,
+  'isCallerPaid' : ActorMethod<[], boolean>,
+  'markUserAsPaid' : ActorMethod<[Principal], undefined>,
+  'recordGeneration' : ActorMethod<[], undefined>,
+  'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'submitTransactionId' : ActorMethod<[string], undefined>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

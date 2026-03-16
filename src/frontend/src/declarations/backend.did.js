@@ -8,6 +8,27 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
+export const UserRole = IDL.Variant({
+  'admin' : IDL.Null,
+  'user' : IDL.Null,
+  'guest' : IDL.Null,
+});
+export const UserProfile = IDL.Record({
+  'name' : IDL.Text,
+  'deviceName' : IDL.Text,
+});
+export const PaidUserInfo = IDL.Record({
+  'paidUntil' : IDL.Int,
+  'name' : IDL.Text,
+  'user' : IDL.Principal,
+  'isPaid' : IDL.Bool,
+  'deviceName' : IDL.Text,
+});
+export const Transaction = IDL.Record({
+  'principal' : IDL.Principal,
+  'txId' : IDL.Text,
+  'timestamp' : IDL.Int,
+});
 export const SensitivityProfile = IDL.Record({
   'freeLook' : IDL.Nat,
   'sniperScope' : IDL.Nat,
@@ -19,12 +40,53 @@ export const SensitivityProfile = IDL.Record({
 });
 
 export const idlService = IDL.Service({
+  '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+  'approveTransaction' : IDL.Func([IDL.Text], [], []),
+  'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+  'canGenerateToday' : IDL.Func([], [IDL.Bool], ['query']),
+  'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
+  'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+  'getPaidUsers' : IDL.Func([], [IDL.Vec(PaidUserInfo)], ['query']),
+  'getPendingTransactions' : IDL.Func([], [IDL.Vec(Transaction)], ['query']),
+  'getRemainingGenerationsToday' : IDL.Func([], [IDL.Nat], ['query']),
   'getSensitivity' : IDL.Func([IDL.Text], [SensitivityProfile], ['query']),
+  'getUserProfile' : IDL.Func(
+      [IDL.Principal],
+      [IDL.Opt(UserProfile)],
+      ['query'],
+    ),
+  'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+  'isCallerPaid' : IDL.Func([], [IDL.Bool], ['query']),
+  'markUserAsPaid' : IDL.Func([IDL.Principal], [], []),
+  'recordGeneration' : IDL.Func([], [], []),
+  'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'submitTransactionId' : IDL.Func([IDL.Text], [], []),
 });
 
 export const idlInitArgs = [];
 
 export const idlFactory = ({ IDL }) => {
+  const UserRole = IDL.Variant({
+    'admin' : IDL.Null,
+    'user' : IDL.Null,
+    'guest' : IDL.Null,
+  });
+  const UserProfile = IDL.Record({
+    'name' : IDL.Text,
+    'deviceName' : IDL.Text,
+  });
+  const PaidUserInfo = IDL.Record({
+    'paidUntil' : IDL.Int,
+    'name' : IDL.Text,
+    'user' : IDL.Principal,
+    'isPaid' : IDL.Bool,
+    'deviceName' : IDL.Text,
+  });
+  const Transaction = IDL.Record({
+    'principal' : IDL.Principal,
+    'txId' : IDL.Text,
+    'timestamp' : IDL.Int,
+  });
   const SensitivityProfile = IDL.Record({
     'freeLook' : IDL.Nat,
     'sniperScope' : IDL.Nat,
@@ -36,7 +98,27 @@ export const idlFactory = ({ IDL }) => {
   });
   
   return IDL.Service({
+    '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+    'approveTransaction' : IDL.Func([IDL.Text], [], []),
+    'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+    'canGenerateToday' : IDL.Func([], [IDL.Bool], ['query']),
+    'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
+    'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+    'getPaidUsers' : IDL.Func([], [IDL.Vec(PaidUserInfo)], ['query']),
+    'getPendingTransactions' : IDL.Func([], [IDL.Vec(Transaction)], ['query']),
+    'getRemainingGenerationsToday' : IDL.Func([], [IDL.Nat], ['query']),
     'getSensitivity' : IDL.Func([IDL.Text], [SensitivityProfile], ['query']),
+    'getUserProfile' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Opt(UserProfile)],
+        ['query'],
+      ),
+    'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+    'isCallerPaid' : IDL.Func([], [IDL.Bool], ['query']),
+    'markUserAsPaid' : IDL.Func([IDL.Principal], [], []),
+    'recordGeneration' : IDL.Func([], [], []),
+    'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'submitTransactionId' : IDL.Func([IDL.Text], [], []),
   });
 };
 
